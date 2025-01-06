@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Dashboard</title>
+    <style>
+        /* Existing CSS */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+        .header {
+            background-color: #333;
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+        }
+        .container {
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h2 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select, input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        table th {
+            background-color: #f0f0f0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        .completed {
+            background-color: #28a745;
+            color: white;
+        }
+        .incomplete {
+            background-color: #dc3545;
+            color: white;
+        }
+        .certificate-message {
+            margin-top: 15px;
+            color: green;
+            font-weight: bold;
+        }
+        .certificate-error {
+            margin-top: 15px;
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>HR Dashboard</h1>
+    </div>
+    <div class="container">
+        <!-- Mentor-Student Allotment Section -->
+        <h2>Allot Mentor to Student</h2>
+        <form id="allotment-form">
+            <div class="form-group">
+                <label for="mentor">Select Mentor:</label>
+                <select id="mentor" required>
+                    <option value="">Select Mentor</option>
+                    <option value="Mentor 1">Mentor 1</option>
+                    <option value="Mentor 2">Mentor 2</option>
+                    <option value="Mentor 3">Mentor 3</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="student">Select Student:</label>
+                <select id="student" required>
+                    <option value="">Select Student</option>
+                    <!-- Dynamically populated options -->
+                </select>
+            </div>
+            <button type="submit">Assign Mentor</button>
+        </form>
+
+        <!-- Work Status Table -->
+        <h2>Work and Remarks</h2>
+        <table id="student-table">
+            <thead>
+                <tr>
+                    <th>Student Name</th>
+                    <th>Mentor</th>
+                    <th>Status</th>
+                    <th>Mentor Remarks</th>
+                    <th>HR Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Dynamic rows will be added here -->
+            </tbody>
+        </table>
+
+        <!-- Provide Certificates Section -->
+        <h2>Provide Certificates</h2>
+        <button onclick="generateCertificates()">Generate Certificates</button>
+        <div id="certificate-message"></div>
+    </div>
+
+    <script>
+        const BASE_URL = "http://localhost:5000"; // Backend server base URL
+
+        // Fetch and display student data
+        async function loadStudents() {
+            try {
+                const response = await fetch(`${BASE_URL}/students`);
+                const students = await response.json();
+
+                // Populate student dropdown
+                const studentDropdown = document.getElementById("student");
+                studentDropdown.innerHTML = '<option value="">Select Student</option>';
+                students.forEach((student) => {
+                    const option = document.createElement("option");
+                    option.value = student.name;
+                    option.textContent = student.name;
+                    studentDropdown.appendChild(option);
+                });
+
+                // Populate table
+                const tableBody = document.querySelector("#student-table tbody");
+                tableBody.innerHTML = ""; // Clear existing rows
+                students.forEach((student) => {
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                        <td>${student.name}</td>
+                        <td>${student.mentor || "Not Assigned"}</td>
+                        <td><span class="status ${
+                            student.status === "Completed" ? "completed" : "incomplete"
+                        }">${student.status}</span></td>
+                        <td>${student.remarks || "-"}</td>
+                        <td>
+                            ${
+                                student.status !== "Completed"
+                                    ? `<button onclick="markAsCompleted('${student.name}')">Mark as Completed</button>`
+                                    : "Completed"
+                            }
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            } catch (error) {
+                console.error("Error loading students:", error);
+            }
+        }
+
+        // Assign mentor to student
+        document.getElementById("allotment-form").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const mentor = document.getElementById("mentor").value;
+            const student = document.getElementById("student").value;
+
+            if (mentor && student) {
+                try {
+                    const response = await fetch(`${BASE_URL}/assign`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ mentor, student }),
+                    });
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        alert(result.message);
+                        loadStudents();
+                    } else {
+                        alert(result.message || "Error assigning mentor.");
+                    }
+                } catch (error) {
+                    console.error("Error assigning mentor:", error);
+                }
+            } else {
+                alert("Please select both a mentor and a student.");
+            }
+        });
+
+        // Mark a student's status as completed
+        async function markAsCompleted(studentName) {
+            try {
+                const response = await fetch(`${BASE_URL}/mark-completed`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ studentName }),
+                });
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(result.message);
+                    loadStudents();
+                } else {
+                    alert(result.message || "Error marking as completed.");
+                }
+            } catch (error) {
+                console.error("Error marking as completed:", error);
+            }
+        }
+
+        // Generate certificates for completed students
+        async function generateCertificates() {
+            const completedStudents = [];
+            document.querySelectorAll("#student-table .status.completed").forEach((cell) => {
+                const studentName = cell.closest("tr").querySelector("td").textContent;
+                completedStudents.push(studentName);
+            });
+
+            const certificateMessage = document.getElementById("certificate-message");
+
+            if (completedStudents.length > 0) {
+                try {
+                    const response = await fetch(`${BASE_URL}/generate-certificate`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ students: completedStudents }),
+                    });
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        certificateMessage.textContent = result.message;
+                        certificateMessage.className = "certificate-message";
+                    } else {
+                        certificateMessage.textContent = result.message || "Error generating certificates.";
+                        certificateMessage.className = "certificate-error";
+                    }
+                } catch (error) {
+                    console.error("Error generating certificates:", error);
+                }
+            } else {
+                certificateMessage.textContent = "No students are marked as completed.";
+                certificateMessage.className = "certificate-error";
+            }
+        }
+
+        // Load students when the page loads
+        window.onload = loadStudents;
+    </script>
+</body>
+</html>
